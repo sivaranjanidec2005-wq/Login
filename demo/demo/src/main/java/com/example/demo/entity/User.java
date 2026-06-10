@@ -28,6 +28,8 @@ public class User {
 
     private LocalDateTime otpExpiry;
 
+    private String otpType;
+
     public User() {}
 
     // ================= GETTERS & SETTERS =================
@@ -104,4 +106,12 @@ public class User {
     public void setOtpExpiry(LocalDateTime otpExpiry) {
        this.otpExpiry = otpExpiry;
     }
+
+    public String getOtpType() {
+    return otpType;
+}
+
+public void setOtpType(String otpType) {
+    this.otpType = otpType;
+}
 }

@@ -36,66 +36,74 @@ public class AuthController {
     private EmailService emailService;
 
     // ================= REGISTER =================
-
     @PostMapping("/register")
-    public String register(
-            @RequestBody RegisterRequest request) throws MessagingException {
+    public String register(@RequestBody RegisterRequest request) throws MessagingException {
 
         if (repo.existsByEmail(request.getEmail())) {
             return "Email already exists";
         }
 
         User user = new User();
-
         user.setName(request.getName());
         user.setEmail(request.getEmail());
         user.setRole(request.getRole());
 
         user.setEncryptedPassword(
-                passwordEncoder.encode(
-                        request.getPassword()));
+                passwordEncoder.encode(request.getPassword()));
 
-        String otp = String.valueOf(
-                (int) (Math.random() * 900000) + 100000);
+        String otp = String.valueOf((int) (Math.random() * 900000) + 100000);
 
         user.setOtp(otp);
-
-        user.setOtpExpiry(
-                LocalDateTime.now()
-                        .plusMinutes(10));
-
+        user.setOtpExpiry(LocalDateTime.now().plusMinutes(10));
+        user.setOtpType("REGISTER");
         user.setVerified(false);
 
         repo.save(user);
 
-        emailService.sendOtpEmail(
-                user.getEmail(),
-                otp);
+        emailService.sendOtpEmail(user.getEmail(), otp);
 
-        return "OTP sent to your email";
+        return "OTP sent to email for verification";
     }
 
-    // ================= VERIFY OTP =================
+    // ================= FORGOT PASSWORD =================
+    @PostMapping("/forgot-password")
+    public String forgotPassword(@RequestParam String email) throws MessagingException {
 
+        User user = repo.findByEmail(email).orElse(null);
+
+        if (user == null) {
+            return "User not found";
+        }
+
+        String otp = String.valueOf((int) (Math.random() * 900000) + 100000);
+
+        user.setOtp(otp);
+        user.setOtpExpiry(LocalDateTime.now().plusMinutes(10));
+        user.setOtpType("FORGOT");
+
+        repo.save(user);
+
+        emailService.sendOtpEmail(email, otp);
+
+        return "OTP sent to email";
+    }
+
+    // ================= VERIFY OTP (COMMON FOR BOTH) =================
     @PostMapping("/verify-otp")
-    public String verifyOtp(
-            @RequestParam String email,
-            @RequestParam String otp) {
+    public String verifyOtp(@RequestParam String email,
+                            @RequestParam String otp) {
 
-        User user = repo.findByEmail(email)
-                .orElse(null);
+        User user = repo.findByEmail(email).orElse(null);
 
         if (user == null) {
             return "User not found";
         }
 
         if (user.getOtp() == null) {
-            return "OTP expired or already verified";
+            return "OTP expired";
         }
 
-        if (LocalDateTime.now()
-                .isAfter(user.getOtpExpiry())) {
-
+        if (LocalDateTime.now().isAfter(user.getOtpExpiry())) {
             return "OTP expired";
         }
 
@@ -103,214 +111,101 @@ public class AuthController {
             return "Invalid OTP";
         }
 
-        user.setVerified(true);
-        user.setOtp(null);
-        user.setOtpExpiry(null);
+        // ========== REGISTER FLOW ==========
+        if ("REGISTER".equals(user.getOtpType())) {
 
-        repo.save(user);
+            user.setVerified(true);
+            user.setOtp(null);
+            user.setOtpExpiry(null);
+            user.setOtpType(null);
 
-        return "Registration Successful";
+            repo.save(user);
+
+            return "Email verified successfully";
+        }
+
+        // ========== FORGOT PASSWORD FLOW ==========
+        if ("FORGOT".equals(user.getOtpType())) {
+
+            user.setOtp(null);
+            user.setOtpExpiry(null);
+
+            repo.save(user);
+
+            return "OTP verified. Proceed to reset password";
+        }
+
+        return "Invalid OTP type";
     }
 
-    // ================= RESEND OTP =================
+    // ================= RESET PASSWORD =================
+    @PostMapping("/reset-password")
+    public String resetPassword(@RequestParam String email,
+                                @RequestParam String otp,
+                                @RequestParam String password) {
 
-    @PostMapping("/resend-otp")
-    public String resendOtp(
-            @RequestParam String email) throws MessagingException {
-
-        User user = repo.findByEmail(email)
-                .orElse(null);
+        User user = repo.findByEmail(email).orElse(null);
 
         if (user == null) {
             return "User not found";
         }
 
-        if (user.isVerified()) {
-            return "Email already verified";
+        if (user.getOtp() == null || !user.getOtp().equals(otp)) {
+            return "Invalid OTP";
         }
 
-        String otp = String.valueOf(
-                (int) (Math.random() * 900000) + 100000);
-
-        user.setOtp(otp);
-
-        user.setOtpExpiry(
-                LocalDateTime.now()
-                        .plusMinutes(10));
+        user.setEncryptedPassword(passwordEncoder.encode(password));
+        user.setOtp(null);
+        user.setOtpExpiry(null);
+        user.setOtpType(null);
 
         repo.save(user);
 
-        emailService.sendOtpEmail(
-                email,
-                otp);
-
-        return "OTP resent successfully";
+        return "Password updated successfully";
     }
 
     // ================= LOGIN =================
-
     @PostMapping("/login")
-    public AuthResponse login(
-            @RequestBody LoginRequest request) {
+    public AuthResponse login(@RequestBody LoginRequest request) {
 
-        User dbUser =
-                repo.findByEmail(
-                        request.getEmail())
-                        .orElse(null);
+        User dbUser = repo.findByEmail(request.getEmail()).orElse(null);
 
         if (dbUser == null) {
-            return new AuthResponse(
-                    "User not found",
-                    null);
+            return new AuthResponse("User not found", null);
         }
 
         if (!dbUser.isVerified()) {
-            return new AuthResponse(
-                    "Please verify your email first",
-                    null);
+            return new AuthResponse("Please verify your email first", null);
         }
 
-        if (!passwordEncoder.matches(
-                request.getPassword(),
-                dbUser.getEncryptedPassword())) {
-
-            return new AuthResponse(
-                    "Invalid Password",
-                    null);
+        if (!passwordEncoder.matches(request.getPassword(), dbUser.getEncryptedPassword())) {
+            return new AuthResponse("Invalid Password", null);
         }
 
-        String token =
-                JwtUtil.generateToken(
-                        dbUser.getEmail());
+        String token = JwtUtil.generateToken(dbUser.getEmail());
 
-        UserSession session =
-                new UserSession();
-
-        session.setEmail(
-                dbUser.getEmail());
-
+        UserSession session = new UserSession();
+        session.setEmail(dbUser.getEmail());
         session.setToken(token);
-
-        session.setLoginTime(
-                LocalDateTime.now());
+        session.setLoginTime(LocalDateTime.now());
 
         sessionRepo.save(session);
 
-        return new AuthResponse(
-                "Login Successful",
-                token);
+        return new AuthResponse("Login Successful", token);
     }
 
     // ================= LOGOUT =================
-
     @PostMapping("/logout")
-    public String logout(
-            @RequestHeader("Authorization")
-            String authHeader) {
+    public String logout(@RequestHeader("Authorization") String authHeader) {
 
-        if (authHeader == null
-                || !authHeader.startsWith("Bearer ")) {
-
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             return "Invalid Token";
         }
 
-        String token =
-                authHeader.substring(7);
+        String token = authHeader.substring(7);
 
         sessionRepo.deleteByToken(token);
 
         return "Logout Successful";
     }
-
-  // ================= FORGOT PASSWORD - SEND OTP =================
-
-@PostMapping("/forgot-password")
-public String forgotPassword(
-        @RequestParam String email)
-        throws MessagingException {
-
-    User user = repo.findByEmail(email)
-            .orElse(null);
-
-    if (user == null) {
-        return "User not found";
-    }
-
-    String otp = String.valueOf(
-            (int) (Math.random() * 900000) + 100000);
-
-    user.setOtp(otp);
-
-    user.setOtpExpiry(
-            LocalDateTime.now().plusMinutes(10));
-
-    repo.save(user);
-
-    emailService.sendOtpEmail(email, otp);
-
-    return "OTP sent to your email";
-}
-
-// ================= VERIFY FORGOT OTP =================
-
-@PostMapping("/verify-forgot-otp")
-public String verifyForgotOtp(
-        @RequestParam String email,
-        @RequestParam String otp) {
-
-    User user = repo.findByEmail(email)
-            .orElse(null);
-
-    if (user == null) {
-        return "User not found";
-    }
-
-    if (user.getOtp() == null) {
-        return "OTP expired";
-    }
-
-    if (LocalDateTime.now()
-            .isAfter(user.getOtpExpiry())) {
-
-        return "OTP expired";
-    }
-
-    if (!user.getOtp().equals(otp)) {
-        return "Invalid OTP";
-    }
-
-    return "OTP Verified";
-}
-
-// ================= RESET PASSWORD =================
-
-@PostMapping("/reset-password")
-public String resetPassword(
-        @RequestParam String email,
-        @RequestParam String otp,
-        @RequestParam String password) {
-
-    User user = repo.findByEmail(email)
-            .orElse(null);
-
-    if (user == null) {
-        return "User not found";
-    }
-
-    if (user.getOtp() == null ||
-            !user.getOtp().equals(otp)) {
-
-        return "Invalid OTP";
-    }
-
-    user.setEncryptedPassword(
-            passwordEncoder.encode(password));
-
-    user.setOtp(null);
-    user.setOtpExpiry(null);
-
-    repo.save(user);
-
-    return "Password Updated Successfully";
-}
 }
