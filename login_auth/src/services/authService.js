@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API_URL =
-  "http://localhost:8081/api/auth";
+  "https://login-att.onrender.com/api/auth";
 
 export const register = (user) => {
   return axios.post(
@@ -17,19 +17,24 @@ export const login = (user) => {
   );
 };
 
-export const forgotPassword = (
-  email
-) => {
+export const forgotPassword = (email) => {
   return axios.post(
     `${API_URL}/forgot-password?email=${email}`
   );
 };
 
+export const verifyForgotOtp = (email, otp) => {
+  return axios.post(
+    `${API_URL}/verify-forgot-otp?email=${email}&otp=${otp}`
+  );
+};
+
 export const resetPassword = (
-  token,
+  email,
+  otp,
   password
 ) => {
   return axios.post(
-    `${API_URL}/reset-password/${token}?password=${password}`
+    `${API_URL}/reset-password?email=${email}&otp=${otp}&password=${password}`
   );
 };
