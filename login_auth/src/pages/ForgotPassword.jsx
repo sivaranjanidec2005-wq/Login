@@ -17,7 +17,7 @@ function ForgotPassword({ setPage }) {
     try {
 
       const response = await axios.post(
-        `http://localhost:8081/api/auth/forgot-password?email=${email}&password=${password}`
+        `https://login-att.onrender.com/api/auth/forgot-password?email=${email}&password=${password}`
       );
 
       console.log(response.data);

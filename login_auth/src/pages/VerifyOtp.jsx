@@ -17,7 +17,7 @@ function VerifyOtp({ setPage }) {
     try {
 
       const res = await axios.post(
-        `http://localhost:8081/api/auth/verify-otp?email=${email}&otp=${otp}`
+        `https://login-att.onrender.com/api/auth/verify-otp?email=${email}&otp=${otp}`
       );
 
       setMessage(res.data);
