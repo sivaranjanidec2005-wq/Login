@@ -4,44 +4,33 @@ import axios from "axios";
 function ForgotPassword({ setPage }) {
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  const handleReset = async () => {
+  const handleSendOtp = async () => {
 
-    if (!email || !password) {
-      setMessage("Please enter email and password");
+    if (!email) {
+      setMessage("Please enter email");
       return;
     }
 
     try {
-
-      const response = await axios.post(
-        `https://login-att.onrender.com/api/auth/forgot-password?email=${email}&password=${password}`
+      const res = await axios.post(
+        `https://login-att.onrender.com/api/auth/forgot-password?email=${email}`
       );
 
-      console.log(response.data);
+      setMessage(res.data);
 
-      setMessage(response.data);
+      if (res.data === "OTP sent to email") {
 
-      if (response.data === "Password Updated Successfully") {
+        localStorage.setItem("forgotEmail", email);
 
         setTimeout(() => {
-          setPage("login");
-        }, 2000);
-
+          setPage("verifyOtp");   // reuse OTP page
+        }, 1000);
       }
 
-    } catch (error) {
-
-      console.log(error);
-
-      if (error.response) {
-        setMessage(error.response.data);
-      } else {
-        setMessage("Server Error");
-      }
-
+    } catch (err) {
+      setMessage("Server Error");
     }
   };
 
@@ -49,40 +38,22 @@ function ForgotPassword({ setPage }) {
     <div className="container">
       <div className="card">
 
-        <h2>Reset Password</h2>
+        <h2>Forgot Password</h2>
 
-        {message && (
-          <div className="message">
-            {message}
-          </div>
-        )}
+        {message && <p>{message}</p>}
 
         <input
           type="email"
           placeholder="Enter Email"
           value={email}
-          onChange={(e) =>
-            setEmail(e.target.value)
-          }
+          onChange={(e) => setEmail(e.target.value)}
         />
 
-        <input
-          type="password"
-          placeholder="Enter New Password"
-          value={password}
-          onChange={(e) =>
-            setPassword(e.target.value)
-          }
-        />
-
-        <button onClick={handleReset}>
-          Update Password
+        <button onClick={handleSendOtp}>
+          Send OTP
         </button>
 
-        <button
-          className="link-btn"
-          onClick={() => setPage("login")}
-        >
+        <button onClick={() => setPage("login")}>
           Back To Login
         </button>
 

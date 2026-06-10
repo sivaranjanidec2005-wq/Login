@@ -1,42 +1,42 @@
 import { useState } from "react";
-import { resetPassword } from "../services/authService";
+import axios from "axios";
 
-function ResetPassword({ token, setPage }) {
+function ResetPassword({ setPage }) {
 
-  const [password, setPassword] =
-    useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
 
-  const [message, setMessage] =
-    useState("");
+  const handleReset = async () => {
 
-  const handleResetPassword =
-    async () => {
+    const email = localStorage.getItem("forgotEmail");
+    const otp = localStorage.getItem("forgotOtp");
 
-      try {
+    if (!password) {
+      setMessage("Enter password");
+      return;
+    }
 
-        const response =
-          await resetPassword(
-            token,
-            password
-          );
+    try {
+      const res = await axios.post(
+        `https://login-att.onrender.com/api/auth/reset-password?email=${email}&otp=${otp}&password=${password}`
+      );
 
-        setMessage(
-          response.data
-        );
+      setMessage(res.data);
+
+      if (res.data === "Password updated successfully") {
+
+        localStorage.removeItem("forgotEmail");
+        localStorage.removeItem("forgotOtp");
 
         setTimeout(() => {
-
           setPage("login");
-
-        }, 2000);
-
-      } catch (error) {
-
-        setMessage(
-          "Server Error"
-        );
+        }, 1500);
       }
-    };
+
+    } catch (err) {
+      setMessage("Server Error");
+    }
+  };
 
   return (
     <div className="container">
@@ -44,26 +44,16 @@ function ResetPassword({ token, setPage }) {
 
         <h2>Reset Password</h2>
 
-        {message && (
-          <p>{message}</p>
-        )}
+        {message && <p>{message}</p>}
 
         <input
           type="password"
           placeholder="New Password"
           value={password}
-          onChange={(e) =>
-            setPassword(
-              e.target.value
-            )
-          }
+          onChange={(e) => setPassword(e.target.value)}
         />
 
-        <button
-          onClick={
-            handleResetPassword
-          }
-        >
+        <button onClick={handleReset}>
           Reset Password
         </button>
 

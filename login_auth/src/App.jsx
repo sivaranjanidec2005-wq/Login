@@ -6,6 +6,7 @@ import VerifyOtp from "./pages/VerifyOtp";
 import Dashboard from "./pages/Dashboard";
 import Attendance from "./pages/Attendance";
 import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 
 function App() {
 
@@ -39,6 +40,9 @@ function App() {
 
       {page === "forgot" && (
         <ForgotPassword setPage={setPage} />
+      )}
+      {page === "resetPassword" && (
+        <ResetPassword setPage={setPage} />
       )}
     </>
   );

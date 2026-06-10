@@ -4,15 +4,18 @@ import axios from "axios";
 function VerifyOtp({ setPage }) {
 
   const [email] = useState(
-    localStorage.getItem("otpEmail") || ""
+    localStorage.getItem("otpEmail") || localStorage.getItem("forgotEmail") || ""
   );
 
   const [otp, setOtp] = useState("");
-
-  const [message, setMessage] =
-    useState("");
+  const [message, setMessage] = useState("");
 
   const verifyOtp = async () => {
+
+    if (!otp) {
+      setMessage("Please enter OTP");
+      return;
+    }
 
     try {
 
@@ -20,32 +23,34 @@ function VerifyOtp({ setPage }) {
         `https://login-att.onrender.com/api/auth/verify-otp?email=${email}&otp=${otp}`
       );
 
-      setMessage(res.data);
+      const response = res.data;
 
-      if (
-        res.data.includes(
-          "Registration Successful"
-        )
-      ) {
+      setMessage(response);
 
-        localStorage.removeItem(
-          "otpEmail"
-        );
+      // ================= REGISTER FLOW =================
+      if (response.includes("Email verified successfully")) {
+
+        localStorage.removeItem("otpEmail");
 
         setTimeout(() => {
-
           setPage("login");
+        }, 1500);
+      }
 
+      // ================= FORGOT PASSWORD FLOW =================
+      if (response.includes("OTP verified")) {
+
+        localStorage.setItem("forgotOtp", otp);
+
+        setTimeout(() => {
+          setPage("resetPassword");
         }, 1500);
       }
 
     } catch (error) {
 
       console.log(error);
-
-      setMessage(
-        "Server Error"
-      );
+      setMessage("Server Error");
     }
   };
 
@@ -53,8 +58,12 @@ function VerifyOtp({ setPage }) {
 
     try {
 
+      const emailToUse =
+        localStorage.getItem("otpEmail") ||
+        localStorage.getItem("forgotEmail");
+
       const res = await axios.post(
-        `http://localhost:8081/api/auth/resend-otp?email=${email}`
+        `https://login-att.onrender.com/api/auth/resend-otp?email=${emailToUse}`
       );
 
       setMessage(res.data);
@@ -62,10 +71,7 @@ function VerifyOtp({ setPage }) {
     } catch (error) {
 
       console.log(error);
-
-      setMessage(
-        "Unable to resend OTP"
-      );
+      setMessage("Unable to resend OTP");
     }
   };
 
@@ -85,32 +91,20 @@ function VerifyOtp({ setPage }) {
           type="text"
           placeholder="Enter OTP"
           value={otp}
-          onChange={(e) =>
-            setOtp(
-              e.target.value
-            )
-          }
+          onChange={(e) => setOtp(e.target.value)}
         />
 
-        <button
-          onClick={verifyOtp}
-        >
+        <button onClick={verifyOtp}>
           Verify OTP
         </button>
 
-        <button
-          onClick={resendOtp}
-        >
+        <button onClick={resendOtp}>
           Resend OTP
         </button>
 
-        <p>{message}</p>
+        {message && <p>{message}</p>}
 
-        <button
-          onClick={() =>
-            setPage("login")
-          }
-        >
+        <button onClick={() => setPage("login")}>
           Back To Login
         </button>
 
